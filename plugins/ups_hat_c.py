@@ -111,20 +111,23 @@ class UPSC(plugins.Plugin):
                        addr=self.options.get("addr", 0x43))
 
     def on_ui_setup(self, ui):
-        if self.options["label_on"]:
+        if self.options.get("label_on", True):
             ui.add_element('ups', LabeledValue(color=BLACK, label='BAT', value="--%",
-                                               position=(int(self.options["bat_x_coord"]),
-                                                         int(self.options["bat_y_coord"])),
+                                               position=(int(self.options.get("bat_x_coord", ui.width()/2)),
+                                                         int(self.options.get("bat_y_coord", 0))),
                                                label_font=fonts.Bold, text_font=fonts.Medium))
         else:
             ui.add_element('ups', LabeledValue(color=BLACK, label='', value="--%",
-                                               position=(int(self.options["bat_x_coord"]),
-                                                         int(self.options["bat_y_coord"])),
+                                               position=(int(self.options.get("bat_x_coord", ui.width()/2)),
+                                                         int(self.options.get("bat_y_coord",0))),
                                                label_font=fonts.Bold, text_font=fonts.Medium))
 
     def on_unload(self, ui):
         with ui._lock:
-            ui.remove_element('ups')
+            try:
+                ui.remove_element('ups')
+            except Exception as e:
+                logging.error(e)
 
     def on_ui_update(self, ui):
         bus_voltage = self.ups.getBusVoltage_V()
@@ -134,7 +137,7 @@ class UPSC(plugins.Plugin):
 
         charging = self.ups.getCurrent_mA()
         charge_state = (charging == "+")
-        if self.charge_state != charge_state:  # state change
+        if self.charge_state != charge_state and self.last_capacity:  # state change
             now = time.time()
             if self.last_state_change: # if we started the timer
                 dur = now - self.last_state_change
@@ -146,12 +149,12 @@ class UPSC(plugins.Plugin):
                                 h, m, s,
                                 self.last_state_capacity, self.last_capacity))
             self.last_state_change = now
-            self.last_state_capacity = capacity
+            self.last_state_capacity = self.last_capacity
             self.charge_state = charge_state
         self.last_capacity = capacity
         ui.set('ups', str(capacity) + "%" + charging)
 
-        if capacity <= self.options['shutdown']:
+        if capacity <= self.options.get('shutdown', 1):
             logging.info('[ups_hat_c] Empty battery (<= %s%%): shutting down' % self.options['shutdown'])
             ui.update(force=True, new_data={'status': 'Battery exhausted, bye ...'})
             time.sleep(3)
