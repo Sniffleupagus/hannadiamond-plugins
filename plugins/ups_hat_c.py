@@ -95,12 +95,16 @@ class UPS:
 
 class UPSC(plugins.Plugin):
     __author__ = 'HannaDiamond'
-    __version__ = '1.0.1'
+    __version__ = '1.0.2'
     __license__ = 'MIT'
     __description__ = 'A plugin that will add a battery capacity and charging indicator for the UPS HAT C'
 
     def __init__(self):
         self.ups = None
+        self.charge_state = None
+        self.last_state_change = None
+        self.last_state_capacity = None
+        self.last_capacity = None
 
     def on_loaded(self):
         self.ups = UPS(i2c_bus=self.options.get("i2c_bus", 1),
@@ -129,6 +133,22 @@ class UPSC(plugins.Plugin):
         if (capacity < 0): capacity = 0
 
         charging = self.ups.getCurrent_mA()
+        charge_state = (charging == "+")
+        if self.charge_state != charge_state:  # state change
+            now = time.time()
+            if self.last_state_change: # if we started the timer
+                dur = now - self.last_state_change
+                s = int(dur)%60
+                m = int(dur/60)%60
+                h = int(dur/3600)
+                logging.info("UPS Hat C %s for %d:%02d:%02d from %s%% to %s%%"
+                             % ("Charging" if self.charge_state else "Draining",
+                                h, m, s,
+                                self.last_state_capacity, self.last_capacity))
+            self.last_state_change = now
+            self.last_state_capacity = capacity
+            self.charge_state = charge_state
+        self.last_capacity = capacity
         ui.set('ups', str(capacity) + "%" + charging)
 
         if capacity <= self.options['shutdown']:
