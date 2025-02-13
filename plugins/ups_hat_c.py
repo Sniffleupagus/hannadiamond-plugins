@@ -29,11 +29,11 @@ _REG_CALIBRATION = 0x05
 
 
 class UPS:
-    def __init__(self):
+    def __init__(self, i2c_bus=1, addr=0x43):
         # only import when the module is loaded and enabled
         import smbus
-        self._bus = smbus.SMBus(1)
-        self._addr = 0x43
+        self._bus = smbus.SMBus(i2c_bus)
+        self._addr = addr
 
         # Set chip to known config values to start
         self._cal_value = 0
@@ -103,7 +103,8 @@ class UPSC(plugins.Plugin):
         self.ups = None
 
     def on_loaded(self):
-        self.ups = UPS()
+        self.ups = UPS(i2c_bus=self.options.get("i2c_bus", 1),
+                       addr=self.options.get("addr", 0x43))
 
     def on_ui_setup(self, ui):
         if self.options["label_on"]:
